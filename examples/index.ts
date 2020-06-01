@@ -1,3 +1,3 @@
-import * as muda from '@muda/muda';
+import {drawDemo} from '../examples/draw';
 
-type a = muda.Canvas;
+drawDemo(document, 'canvas');

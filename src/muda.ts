@@ -32,11 +32,11 @@ type CanvasCtx = CanvasRenderingContext2D;
 
 type DrawPixelFunction = (canvas: Canvas, pixel: Pixel) => void;
 
-export function filledRect(canvas: Canvas, pixel: Pixel): void {
+export function fillRect(canvas: Canvas, pixel: Pixel): void {
   const ctx = canvas.ctx;
   const coordSystem = canvas.coordSystem;
   const nativePos: Coordinate = coordSystem.pixelToNativePixel(pixel.position);
-  ctx.fillStyle = pixel.color.rgba();
+  ctx.fillStyle = pixel.color.toString();
   ctx.fillRect(
     nativePos.x,
     nativePos.y,
@@ -74,8 +74,8 @@ export interface Drawable {
 }
 
 export interface Color {
-  // A string like '#000000' that represents the color
-  rgba(): string;
+  // A color string that's interpretable by JavaScript
+  toString(): string;
 }
 
 export interface Pixel {
@@ -97,6 +97,6 @@ export class GraphicsItem implements Drawable {
     }
   }
   position: Coordinate = {x: 0, y: 0};
-  pixels: Pixel[] = Array<Pixel>();
+  pixels: Pixel[] = new Array<Pixel>();
   readonly canvas: Canvas;
 }
