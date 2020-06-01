@@ -1,11 +1,15 @@
 {
   "extends": "./node_modules/gts/tsconfig-google.json",
+  "moduleResolution": "node",
   "compilerOptions": {
     "rootDir": ".",
-    "outDir": "build"
+    "outDir": "build",
+    "lib": ["es2016", "dom"],
+    "baseUrl": ".",
+    "paths": {
+      "@muda/*": ["src/*"]
+    }
   },
-  "include": [
-    "src/**/*.ts",
-    "test/**/*.ts"
-  ]
+
+  "include": ["src/**/*.ts", "test/**/*.ts", "examples/**/*.ts"]
 }
