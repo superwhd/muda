@@ -25,6 +25,7 @@
     "@types/node": "^13.11.1"
   },
   "dependencies": {
-    "gitignore": "^0.6.0"
+    "gitignore": "^0.6.0",
+    "tspath": "^1.3.7"
   }
 }
