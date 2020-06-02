@@ -1,3 +1,3 @@
 import {drawDemo} from '../examples/draw';
 
-drawDemo(document, 'canvas');
+drawDemo(document.getElementById('canvas') as HTMLCanvasElement);

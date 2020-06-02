@@ -1,6 +1,6 @@
 import * as muda from '@muda/muda';
 
-export function drawDemo(document: HTMLDocument, id: string) {
+export function drawDemo(nativeCanvas: HTMLCanvasElement) {
   const makeColor = function (color: string): muda.Color {
     return {
       toString() {
@@ -20,7 +20,6 @@ export function drawDemo(document: HTMLDocument, id: string) {
   const coor = function (x: number, y: number): muda.Coordinate {
     return {x: x, y: y};
   };
-  const nativeCanvas = document.getElementById(id) as HTMLCanvasElement;
   const coordSystem = new muda.DefaultCoordSystem(1, 100);
   const mudaCanvas = new muda.Canvas(nativeCanvas, coordSystem, muda.fillRect);
   const pixels: Array<muda.Pixel> = [
