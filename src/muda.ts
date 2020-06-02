@@ -83,6 +83,12 @@ export class Canvas {
   drawPixel(pixel: Pixel): void {
     this.drawPixelFunc(this, pixel);
   }
+  width(): number {
+    return this.coordSystem.width;
+  }
+  height(): number {
+    return this.coordSystem.height;
+  }
 
   readonly nativeCanvas: HTMLCanvasElement;
   readonly ctx: CanvasCtx;
