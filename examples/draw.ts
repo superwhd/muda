@@ -20,7 +20,7 @@ export function drawDemo(nativeCanvas: HTMLCanvasElement) {
   const coor = function (x: number, y: number): muda.Coordinate {
     return {x: x, y: y};
   };
-  const coordSystem = new muda.DefaultCoordSystem(1, 100);
+  const coordSystem = new muda.DefaultCoordSystem(1, 25, 10, 20);
   const mudaCanvas = new muda.Canvas(nativeCanvas, coordSystem, muda.fillRect);
   const pixels: Array<muda.Pixel> = [
     makePixel(coor(0, 0), makeColor('red')),

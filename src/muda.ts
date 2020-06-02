@@ -7,16 +7,28 @@ export interface Coordinate {
 export interface CoordSystem {
   gridToPixel(pos: Coordinate): Coordinate;
   pixelToNativePixel(pos: Coordinate): Coordinate;
+  nativeCanvasSize(): {width: number; height: number};
   // The side length of a grid, in 'muda' pixels
   readonly gridSize: number;
   // The side length of a 'muda' pixel, in size of monitor/native pixels
   readonly pixelSize: number;
+  // Canvas width by grid
+  readonly width: number;
+  // Canvas height by grid
+  readonly height: number;
 }
 
 export class DefaultCoordSystem implements CoordSystem {
-  constructor(gridSize: number, pixelSize: number) {
+  constructor(
+    gridSize: number,
+    pixelSize: number,
+    width: number,
+    height: number
+  ) {
     this.gridSize = gridSize;
     this.pixelSize = pixelSize;
+    this.width = width;
+    this.height = height;
   }
   gridToPixel(pos: Coordinate): Coordinate {
     return {x: pos.x * this.gridSize, y: pos.y * this.gridSize};
@@ -24,8 +36,16 @@ export class DefaultCoordSystem implements CoordSystem {
   pixelToNativePixel(pos: Coordinate): Coordinate {
     return {x: pos.x * this.pixelSize, y: pos.y * this.pixelSize};
   }
-  gridSize: number;
-  pixelSize: number;
+  nativeCanvasSize() {
+    return {
+      width: this.width * this.gridSize * this.pixelSize,
+      height: this.height * this.gridSize * this.pixelSize,
+    };
+  }
+  readonly gridSize: number;
+  readonly pixelSize: number;
+  readonly width: number;
+  readonly height: number;
 }
 
 type CanvasCtx = CanvasRenderingContext2D;
@@ -51,16 +71,20 @@ export class Canvas {
     coordSystem: CoordSystem,
     drawPixelFunc: DrawPixelFunction
   ) {
-    this.htmlCanvas = htmlCanvas;
-    this.ctx = this.htmlCanvas.getContext('2d')!;
+    this.nativeCanvas = htmlCanvas;
+    this.ctx = this.nativeCanvas.getContext('2d')!;
     this.coordSystem = coordSystem;
     this.drawPixelFunc = drawPixelFunc;
+
+    const nativeCanvasSize = this.coordSystem.nativeCanvasSize();
+    this.nativeCanvas.width = nativeCanvasSize.width;
+    this.nativeCanvas.height = nativeCanvasSize.height;
   }
   drawPixel(pixel: Pixel): void {
     this.drawPixelFunc(this, pixel);
   }
 
-  readonly htmlCanvas: HTMLCanvasElement;
+  readonly nativeCanvas: HTMLCanvasElement;
   readonly ctx: CanvasCtx;
   readonly coordSystem: CoordSystem;
   readonly drawPixelFunc: DrawPixelFunction;
