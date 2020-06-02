@@ -4,10 +4,14 @@ export interface Coordinate {
   y: number;
 }
 
-export interface CoordSystem {
+export interface Camera {
+  worldPosToCamera(pos: Coordinate): Coordinate | null;
   gridToPixel(pos: Coordinate): Coordinate;
   pixelToNativePixel(pos: Coordinate): Coordinate;
   nativeCanvasSize(): {width: number; height: number};
+
+  readonly canvas: HTMLCanvasElement;
+  readonly drawer: Drawer;
   // The side length of a grid, in 'muda' pixels
   readonly gridSize: number;
   // The side length of a 'muda' pixel, in size of monitor/native pixels
@@ -18,17 +22,30 @@ export interface CoordSystem {
   readonly height: number;
 }
 
-export class DefaultCoordSystem implements CoordSystem {
+export class DefaultCamera implements Camera {
   constructor(
+    canvas: HTMLCanvasElement,
+    drawer: Drawer,
     gridSize: number,
     pixelSize: number,
     width: number,
     height: number
   ) {
+    this.canvas = canvas;
+    this.drawer = drawer;
     this.gridSize = gridSize;
     this.pixelSize = pixelSize;
     this.width = width;
     this.height = height;
+  }
+  worldPosToCamera(pos: Coordinate) {
+    const copied = Object.assign({}, pos);
+    pos.x -= this.offset.x;
+    pos.y -= this.offset.y;
+    if (pos.x < 0 || pos.x >= this.width || pos.y < 0 || pos.y >= this.height) {
+      return null;
+    }
+    return copied;
   }
   gridToPixel(pos: Coordinate): Coordinate {
     return {x: pos.x * this.gridSize, y: pos.y * this.gridSize};
@@ -42,6 +59,9 @@ export class DefaultCoordSystem implements CoordSystem {
       height: this.height * this.gridSize * this.pixelSize,
     };
   }
+  offset: Coordinate = {x: 0, y: 0};
+  readonly drawer: Drawer;
+  readonly canvas: HTMLCanvasElement;
   readonly gridSize: number;
   readonly pixelSize: number;
   readonly width: number;
@@ -50,57 +70,22 @@ export class DefaultCoordSystem implements CoordSystem {
 
 type CanvasCtx = CanvasRenderingContext2D;
 
-type DrawPixelFunction = (canvas: Canvas, pixel: Pixel) => void;
-
-export function fillRect(canvas: Canvas, pixel: Pixel): void {
-  const ctx = canvas.ctx;
-  const coordSystem = canvas.coordSystem;
-  const nativePos: Coordinate = coordSystem.pixelToNativePixel(pixel.position);
-  ctx.fillStyle = pixel.color.toString();
-  ctx.fillRect(
-    nativePos.x,
-    nativePos.y,
-    coordSystem.pixelSize,
-    coordSystem.pixelSize
-  );
+export class World {
+  constructor() {}
+  drawables: Drawable[] = [];
 }
 
-export class Canvas {
-  constructor(
-    htmlCanvas: HTMLCanvasElement,
-    coordSystem: CoordSystem,
-    drawPixelFunc: DrawPixelFunction
-  ) {
-    this.nativeCanvas = htmlCanvas;
-    this.ctx = this.nativeCanvas.getContext('2d')!;
-    this.coordSystem = coordSystem;
-    this.drawPixelFunc = drawPixelFunc;
-
-    const nativeCanvasSize = this.coordSystem.nativeCanvasSize();
-    this.nativeCanvas.width = nativeCanvasSize.width;
-    this.nativeCanvas.height = nativeCanvasSize.height;
-  }
-  drawPixel(pixel: Pixel): void {
-    this.drawPixelFunc(this, pixel);
-  }
-  width(): number {
-    return this.coordSystem.width;
-  }
-  height(): number {
-    return this.coordSystem.height;
-  }
-
-  readonly nativeCanvas: HTMLCanvasElement;
-  readonly ctx: CanvasCtx;
-  readonly coordSystem: CoordSystem;
-  readonly drawPixelFunc: DrawPixelFunction;
+interface Drawer {
+  draw(world: World, camera: Camera, pixel: Pixel): void;
 }
 
-export interface Drawable {
-  draw(): void;
-  readonly canvas: Canvas;
-  // The upper left corner coordinate of this Drawable
-  position: Coordinate;
+export class DefaultDrawer implements Drawer {
+  draw(world: World, camera: Camera, pixel: Pixel): void {
+    const ctx = camera.canvas.getContext('2d')!;
+    const nativePos: Coordinate = camera.pixelToNativePixel(pixel.position);
+    ctx.fillStyle = pixel.color.toString();
+    ctx.fillRect(nativePos.x, nativePos.y, camera.pixelSize, camera.pixelSize);
+  }
 }
 
 export interface Color {
@@ -113,9 +98,18 @@ export interface Pixel {
   color: Color;
 }
 
+export interface Drawable {
+  draw(): void;
+  readonly world: World;
+  readonly camera: Camera;
+  // The upper left corner coordinate of this Drawable
+  position: Coordinate;
+}
+
 export class GraphicsItem implements Drawable {
-  constructor(canvas: Canvas, pixels: Pixel[], position?: Coordinate) {
-    this.canvas = canvas;
+  constructor(gameplay: GamePlay, pixels: Pixel[], position?: Coordinate) {
+    this.world = gameplay.world;
+    this.camera = gameplay.camera;
     this.pixels = pixels;
     if (position !== undefined) {
       this.position = position;
@@ -123,10 +117,20 @@ export class GraphicsItem implements Drawable {
   }
   draw(): void {
     for (const pixel of this.pixels) {
-      this.canvas.drawPixel(pixel);
+      this.camera.drawer.draw(this.world, this.camera, pixel);
     }
   }
   position: Coordinate = {x: 0, y: 0};
   pixels: Pixel[] = new Array<Pixel>();
-  readonly canvas: Canvas;
+  readonly world: World;
+  readonly camera: Camera;
+}
+
+export class GamePlay {
+  constructor(world: World, camera: Camera) {
+    this.world = world;
+    this.camera = camera;
+  }
+  readonly world: World;
+  readonly camera: Camera;
 }

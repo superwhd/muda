@@ -1,3 +1,3 @@
-import {drawDemo} from '../examples/draw';
+import {demo} from './tetris';
 
-drawDemo(document.getElementById('canvas') as HTMLCanvasElement);
+demo(document.getElementById('canvas') as HTMLCanvasElement);
