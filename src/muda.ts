@@ -60,6 +60,7 @@ export class DefaultCamera implements Camera {
     };
   }
   offset: Coordinate = {x: 0, y: 0};
+  // TODO(whd): decouple drawer from camera
   readonly drawer: Drawer;
   readonly canvas: HTMLCanvasElement;
   readonly gridSize: number;
@@ -76,11 +77,11 @@ export class World {
 }
 
 interface Drawer {
-  draw(world: World, camera: Camera, pixel: Pixel): void;
+  draw(camera: Camera, pixel: Pixel): void;
 }
 
 export class DefaultDrawer implements Drawer {
-  draw(world: World, camera: Camera, pixel: Pixel): void {
+  draw(camera: Camera, pixel: Pixel): void {
     const ctx = camera.canvas.getContext('2d')!;
     const nativePos: Coordinate = camera.pixelToNativePixel(pixel.position);
     ctx.fillStyle = pixel.color.toString();
@@ -99,38 +100,103 @@ export interface Pixel {
 }
 
 export interface Drawable {
-  draw(): void;
-  readonly world: World;
-  readonly camera: Camera;
+  draw(camera: Camera): void;
   // The upper left corner coordinate of this Drawable
   position: Coordinate;
+  layer: number;
 }
 
 export class GraphicsItem implements Drawable {
-  constructor(gameplay: GamePlay, pixels: Pixel[], position?: Coordinate) {
-    this.world = gameplay.world;
-    this.camera = gameplay.camera;
+  constructor(pixels: Pixel[], position?: Coordinate, layer = 0) {
     this.pixels = pixels;
+    this.layer = layer;
     if (position !== undefined) {
       this.position = position;
     }
   }
-  draw(): void {
+  draw(camera: Camera): void {
     for (const pixel of this.pixels) {
-      this.camera.drawer.draw(this.world, this.camera, pixel);
+      camera.drawer.draw(camera, {
+        position: {
+          x: pixel.position.x + this.position.x,
+          y: pixel.position.y + this.position.y,
+        },
+        color: pixel.color,
+      });
     }
   }
-  position: Coordinate = {x: 0, y: 0};
   pixels: Pixel[] = new Array<Pixel>();
-  readonly world: World;
-  readonly camera: Camera;
+  position: Coordinate = {x: 0, y: 0};
+  layer: number;
+}
+
+export interface Handler {
+  handle(gamePlay: GamePlay): void;
+}
+
+export interface Renderer {
+  render(gamePlay: GamePlay): void;
+}
+
+export class SimpleRenderer implements Renderer {
+  render(gamePlay: GamePlay): void {
+    // TODO(whd) more elegant way to clear
+    const canvasSize = gamePlay.camera.nativeCanvasSize();
+    gamePlay.camera.canvas
+      .getContext('2d')!
+      .clearRect(0, 0, canvasSize.width, canvasSize.height);
+    const drawables = [...gamePlay.world.drawables];
+    drawables.sort((d1, d2) => d1.layer - d2.layer);
+    for (const drawable of drawables) {
+      drawable.draw(gamePlay.camera);
+    }
+  }
+}
+
+export class KeyboardController {
+  constructor(gamePlay: GamePlay) {
+    this.keyDownSet = new Set<string>();
+    this.gamePlay = gamePlay;
+    this.gamePlay.camera.canvas.addEventListener(
+      'keydown',
+      (event: KeyboardEvent) => {
+        this.keyDownSet.add(event.key);
+      }
+    );
+  }
+  // TODO(whd) keyDown should better return a number representing time
+  keyDown(c: string): boolean {
+    return this.keyDownSet.has(c);
+  }
+  readonly keyDownSet: Set<string>;
+  readonly gamePlay: GamePlay;
 }
 
 export class GamePlay {
-  constructor(world: World, camera: Camera) {
+  constructor(
+    world: World,
+    camera: Camera,
+    handler: Handler,
+    renderer: Renderer
+  ) {
     this.world = world;
     this.camera = camera;
+    this.handler = handler;
+    this.renderer = renderer;
+    this.keyboardController = new KeyboardController(this);
   }
+
+  start(): void {
+    setInterval(() => {
+      this.renderer.render(this);
+      this.handler.handle(this);
+    }, 1000.0 / this.fps);
+  }
+
   readonly world: World;
   readonly camera: Camera;
+  readonly handler: Handler;
+  readonly renderer: Renderer;
+  readonly keyboardController: KeyboardController;
+  fps = 60;
 }
