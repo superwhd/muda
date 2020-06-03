@@ -37,6 +37,8 @@ export class DefaultCamera implements Camera {
     this.pixelSize = pixelSize;
     this.width = width;
     this.height = height;
+    this.canvas.width = this.nativeCanvasSize().width;
+    this.canvas.height = this.nativeCanvasSize().height;
   }
   worldPosToCamera(pos: Coordinate) {
     const copied = Object.assign({}, pos);
@@ -157,12 +159,9 @@ export class KeyboardController {
   constructor(gamePlay: GamePlay) {
     this.keyDownSet = new Set<string>();
     this.gamePlay = gamePlay;
-    this.gamePlay.camera.canvas.addEventListener(
-      'keydown',
-      (event: KeyboardEvent) => {
-        this.keyDownSet.add(event.key);
-      }
-    );
+    window.addEventListener('keydown', (event: KeyboardEvent) => {
+      this.keyDownSet.add(event.key);
+    });
   }
   // TODO(whd) keyDown should better return a number representing time
   keyDown(c: string): boolean {

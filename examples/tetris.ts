@@ -19,9 +19,12 @@ class TetrisHandler implements muda.Handler {
     ++this.tick;
     if (this.tick % this.dropFrequency === 0) {
       for (const tetrio of gamePlay.world.drawables as Tetrio[]) {
-        console.log(tetrio.position);
+        if (gamePlay.keyboardController.keyDown('d')) {
+          ++tetrio.position.x;
+        }
         ++tetrio.position.y;
       }
+      gamePlay.keyboardController.keyDownSet.clear();
     }
   }
   tick = 0;
