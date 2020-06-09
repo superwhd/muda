@@ -71,24 +71,47 @@ export class DefaultCamera implements Camera {
   readonly height: number;
 }
 
-type CanvasCtx = CanvasRenderingContext2D;
+export type Unit = Drawable & Collidable;
 
 export class World {
   constructor() {}
-  drawables: Drawable[] = [];
+  allDrawables(): Drawable[] {
+    let res = new Array<Drawable>();
+    for (const value of Object.values(this.units)) {
+      if (value as Unit) {
+        res.push(value as Drawable);
+      } else {
+        res = res.concat(value as Drawable[]);
+      }
+    }
+    return res;
+  }
+  units: {[key: string]: Unit[] | Unit} = {};
 }
 
 interface Drawer {
   draw(camera: Camera, pixel: Pixel): void;
 }
 
-export class DefaultDrawer implements Drawer {
+export class SimpleDrawer implements Drawer {
+  constructor(borderColor: Color) {
+    this.borderColor = borderColor;
+  }
   draw(camera: Camera, pixel: Pixel): void {
     const ctx = camera.canvas.getContext('2d')!;
     const nativePos: Coordinate = camera.pixelToNativePixel(pixel.position);
     ctx.fillStyle = pixel.color.toString();
     ctx.fillRect(nativePos.x, nativePos.y, camera.pixelSize, camera.pixelSize);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = this.borderColor.toString();
+    ctx.strokeRect(
+      nativePos.x + ctx.lineWidth / 2,
+      nativePos.y + ctx.lineWidth / 2,
+      camera.pixelSize - ctx.lineWidth,
+      camera.pixelSize - ctx.lineWidth
+    );
   }
+  borderColor: Color;
 }
 
 export interface Color {
@@ -127,9 +150,137 @@ export class GraphicsItem implements Drawable {
       });
     }
   }
-  pixels: Pixel[] = new Array<Pixel>();
-  position: Coordinate = {x: 0, y: 0};
-  layer: number;
+  public pixels: Pixel[];
+  public position: Coordinate = {x: 0, y: 0};
+  public layer: number;
+}
+
+// TODO(whd) Consider layer?
+export interface Collidable {
+  // border() returns the coordinates of the object.
+  // We say there is a collision as long as the border() overlaps with another Collidable's border()
+  border(): Coordinate[];
+  // aabb() returns the AABB of the object, represented by the up left cooridnate and the bottom right coordinate.
+  aabb(): {topLeft: Coordinate; bottomRight: Coordinate};
+}
+
+export class GraphicsItemUnit extends GraphicsItem implements Unit {
+  constructor(pixels: Pixel[], position?: Coordinate, layer = 0) {
+    super(pixels, position, layer);
+  }
+  aabb(): {topLeft: Coordinate; bottomRight: Coordinate} {
+    const border = this.border();
+    if (!border.length) {
+      // represents empty
+      return {topLeft: {x: 1, y: 1}, bottomRight: {x: -1, y: -1}};
+    }
+    const topLeft = Object.assign([], border[0]);
+    const bottomRight = Object.assign([], border[0]);
+    for (const pos of border) {
+      for (const field of ['x', 'y'] as (keyof Coordinate)[]) {
+        topLeft[field] = Math.min(topLeft[field], pos[field]);
+        bottomRight[field] = Math.max(bottomRight[field], pos[field]);
+      }
+    }
+    return {topLeft, bottomRight};
+  }
+  border(): Coordinate[] {
+    return this.pixels.map(pixel => {
+      return {
+        x: pixel.position.x + this.position.x,
+        y: pixel.position.y + this.position.y,
+      };
+    });
+  }
+}
+
+export interface CollisionDetector {
+  collides(c1: Collidable, c2: Collidable): boolean;
+  collides(
+    c1: Collidable,
+    c2: Collidable,
+    d1: Coordinate,
+    d2: Coordinate
+  ): boolean;
+  collidesBoundary(
+    c: Collidable,
+    d: Coordinate,
+    topLeft: Coordinate,
+    bottomRight: Coordinate
+  ): boolean;
+}
+
+export class SimpleCollisionDetector implements CollisionDetector {
+  collides(
+    c1: Collidable,
+    c2: Collidable,
+    d1: Coordinate = {x: 0, y: 0},
+    d2: Coordinate = {x: 0, y: 0}
+  ): boolean {
+    return this.quickTest(c1, c2, d1, d2) && this.borderOverlap(c1, c2, d1, d2);
+  }
+  collidesBoundary(
+    c: Collidable,
+    d: Coordinate,
+    topLeft: Coordinate,
+    bottomRight: Coordinate
+  ): boolean {
+    const aabb = c.aabb();
+    for (const field of ['x', 'y'] as (keyof Coordinate)[]) {
+      if (
+        aabb.topLeft[field] + d[field] < topLeft[field] ||
+        aabb.bottomRight[field] + d[field] > bottomRight[field]
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+  private quickTest(
+    c1: Collidable,
+    c2: Collidable,
+    d1: Coordinate,
+    d2: Coordinate
+  ): boolean {
+    // Check if c1.aabb() collides with c2.aabb()
+    for (const field of ['x', 'y'] as (keyof Coordinate)[]) {
+      const l = Math.max(
+        c1.aabb().topLeft[field] + d1[field],
+        c2.aabb().topLeft[field] + d2[field]
+      );
+      const r = Math.min(
+        c1.aabb().bottomRight[field] + d1[field],
+        c2.aabb().bottomRight[field] + d2[field]
+      );
+      if (l > r) {
+        return false;
+      }
+    }
+    return true;
+  }
+  private borderOverlap(
+    c1: Collidable,
+    c2: Collidable,
+    d1: Coordinate,
+    d2: Coordinate
+  ): boolean {
+    let border1 = c1.border();
+    let border2 = c2.border();
+    if (border1.length > border2.length) {
+      [border1, border2] = [border2, border1];
+      [d1, d2] = [d2, d1];
+    }
+    const borderSet1 = new Set<string>();
+    for (const pos of border1) {
+      borderSet1.add([pos.x + d1.x, pos.y + d1.y].toString());
+    }
+    for (const pos of border2) {
+      if (borderSet1.has([pos.x + d2.x, pos.y + d2.y].toString())) {
+        return true;
+      }
+    }
+    return false;
+  }
 }
 
 export interface Handler {
@@ -147,7 +298,7 @@ export class SimpleRenderer implements Renderer {
     gamePlay.camera.canvas
       .getContext('2d')!
       .clearRect(0, 0, canvasSize.width, canvasSize.height);
-    const drawables = [...gamePlay.world.drawables];
+    const drawables = gamePlay.world.allDrawables();
     drawables.sort((d1, d2) => d1.layer - d2.layer);
     for (const drawable of drawables) {
       drawable.draw(gamePlay.camera);
@@ -155,18 +306,28 @@ export class SimpleRenderer implements Renderer {
   }
 }
 
+// Use KeyEvent.code, not KeyEvent.key/KeyEvent.keyCode.
 export class KeyboardController {
   constructor(gamePlay: GamePlay) {
     this.keyDownSet = new Set<string>();
     this.gamePlay = gamePlay;
     window.addEventListener('keydown', (event: KeyboardEvent) => {
-      this.keyDownSet.add(event.key);
+      this.keyDownSet.add(event.code);
+      this.latestCode_ = event.code;
+      event.code;
     });
   }
   // TODO(whd) keyDown should better return a number representing time
   keyDown(c: string): boolean {
     return this.keyDownSet.has(c);
   }
+  consumeLatestKeyCode(): string {
+    const code = this.latestCode_;
+    this.latestCode_ = '';
+    return code;
+  }
+
+  private latestCode_ = '';
   readonly keyDownSet: Set<string>;
   readonly gamePlay: GamePlay;
 }
