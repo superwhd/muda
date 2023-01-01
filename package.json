@@ -26,12 +26,12 @@
     "@types/lodash": "^4.14.155",
     "@types/node": "^13.11.1",
     "gts": "^2.0.2",
-    "html-webpack-plugin": "^4.3.0",
+    "html-webpack-plugin": "^5.5.0",
     "source-map-loader": "^1.0.0",
-    "ts-loader": "^7.0.5",
+    "ts-loader": "^9.4.2",
     "typescript": "^3.8.3",
-    "webpack": "^4.43.0",
-    "webpack-cli": "^3.3.11"
+    "webpack": "^5.75.0",
+    "webpack-cli": "^5.0.1"
   },
   "dependencies": {
     "gitignore": "^0.6.0",
